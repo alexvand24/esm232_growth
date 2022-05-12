@@ -20,30 +20,51 @@ Forest growth model components:
 - K = carrying capacity (units of carbon)
 - r = early exponential growth rate
 - g = linear growth rate once canopy closure has been reached
-- dC/dt = rate of change of forest size
-- canopy closure threshold = size of the forest at which growth rates change from exponential to linear (from r to g)
+- dC_dt = rate of change of forest size
+- cc_threshold (canopy closure threshold) = size of the forest at which growth rates change from exponential to linear (from r to g)
 
 
 ```{r}
+# need to move this over to an R script and add roxygen skeleton
+
 # early exponential growth rate
 # dC_dt <- r * C for forests where C is below a threshold canopy closure
+# parms is a list of r, g, K, cc_threshold
 
-# exp_growth <- function(r = 0.01, C){
-#   dC_dt <- r * C
-#   return(dC_dt)
-# }
+growth <- function(Time, C, parms){
+  if(C < 50){
+    # early exponential growth rate
+    # for forests where C is below a threshold canopy closure
+    dC_dt <- parms$r * C
+  }
+  
+  if(C >= 50){
+    # linear growth rate once canopy closure has been reached
+    # for forests where carbon is at or above the threshold canopy closure
+    dC_dt <- parms$g * (1 - C/parms$K)
+  }
+  
+  return(list(dC_dt))
+}
 ```
+
 
 ```{r}
-# linear growth rate once canopy closure has been reached
-# for forests where carbon is at or above the threshold canopy closure
+# set parameters
+forestparms <- list(r = 0.01, g = 2, K = 250, C)
 
-# linear_growth <- function(r = 0.01, g = 2){
-#   dC_dt <- g * (1 - C/K)
-#   return(dC_dt)
-# }
+# create a time sequence
+times = seq(from = 1, to = 300)
+
+# start a small forest
+C_initial = 10
+
+# watch it grow
+forest = ode(y = C_initial, times = times, growth, parms=forestparms)
+
+colnames(forest)=c("time","carbon")
+ggplot(as.data.frame(forest),aes(time, carbon) )+geom_line()
 ```
-
 
 
 # from Naomi github [pop_growth_with_K_and_sobol.Rmd](https://github.com/naomitague/ESM232_Examples/blob/main/Rmarkdown/pop_growth_with_K_and_sobol.Rmd)
@@ -70,7 +91,8 @@ colnames(sens_P$X) = c("r","K")
 
 
 # CODE BREAKS HERE
-don't yet have the following R script in the repo (if this is even what we need)
+don't yet have the following R script
+
 
 ```{r}
 # I [Naomi] may re-use this function so I saved it as a file 
