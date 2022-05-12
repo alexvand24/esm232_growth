@@ -17,7 +17,7 @@ library(deSolve)
 Forest growth model components:
 
 - C = size of the forest (units of carbon)
-- K = carrying capacity (unit of carbon)
+- K = carrying capacity (units of carbon)
 - r = early exponential growth rate
 - g = linear growth rate once canopy closure has been reached
 - dC/dt = rate of change of forest size
@@ -66,13 +66,15 @@ sens_P = sobolSalt(model = NULL,X1, X2, nboot = 300)
 head(sens_P$X)
 # lets add names 
 colnames(sens_P$X) = c("r","K")
-# I may re-use this function so I saved it as a file 
+```
+
+
+# CODE BREAKS HERE
+don't yet have the following R script in the repo (if this is even what we need)
+
+```{r}
+# I [Naomi] may re-use this function so I saved it as a file 
 # maxyear doesn't make sense for a growth that slows gradually - so I'll use year when population doubles
-
-
-# CODE BREAKS HERE. don't yet have the following R script in the repo
-
-
 source("../R/compute_pop_metrics.R")
 Pinitial = 100
 # I continually update the wrapper to I'll keep in inline
