@@ -77,9 +77,53 @@ forest_sensitivity = ode(y = C_initial, times = times, growth, parms=parameters)
 
 
 ```{r}
-# need to pull out max and mean values of c
+# pull out max and mean values of c
+compute_metrics <- function(forest_sensitivity) {
+  max_val <- max(forest_sensitivity)
+  mean_val <- mean(forest_sensitivity)
+  return(list(max_val=max_val, mean_val=mean_val))
+}
 
-# need to create a box plot
+# use wrapper function to return the forest size values
+growth_wrapper <- function(r, K, g, cc_threshold, C_initial, times, func) {
+  parms <- list(r=r, K=K, g=g, cc_threshold=cc_threshold)
+  result <- ode(y=C_initial, times=times, func=func, parms=parms)
+  result <- as.data.frame(result)
+  colnames(result) = c("Time", "C")
+  #get metrics
+  metrics <- compute_metrics(result$C)
+  return(metrics)
+}
+
+allresults <- as.data.frame(sens_forest$X) %>%  pmap(growth_wrapper, C_initial = C_initial, times = times, func = growth)
+
+allres <- allresults %>% 
+  map_dfr(`[`, c("max_val", "mean_val"))
+
+# create a box plot... SCALING IS OFF
+tmp <- allres %>% 
+  pivot_longer(cols = c(max_val, mean_val), names_to = "Metric", values_to = "Value")
+
+ggplot(data = tmp, aes(x = Metric, y = Value, col=Metric)) +
+  geom_boxplot()
+```
+
+```{r}
+# try to fix scaling... MEAN PLOT IS REALLY WEIRD
+max_df <- tmp %>% 
+  filter(Metric == "max_val")
+
+mean_df <- tmp %>% 
+  filter(Metric == "mean_val")
+
+max_plot <- ggplot(max_df, aes(x = Metric, y = Value)) +
+  geom_boxplot()
+
+mean_plot <- ggplot(mean_df, aes(x = Metric, Y = Value)) +
+  geom_boxplot()
+
+max_plot
+mean_plot
 ```
 
 
