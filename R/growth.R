@@ -17,7 +17,7 @@ growth <- function(Time, C, parms){
   else{
     # linear growth rate once canopy closure has been reached
     # for forests where carbon is at or above the threshold canopy closure
-    dC_dt <- parms$g * (1 - C/parms$K)
+    dC_dt <- parms$g * (1 - (C/parms$K))
   }
   
   return(list(dC_dt))
