@@ -98,14 +98,17 @@ growth_wrapper <- function(r, K, g, cc_threshold, C_initial, times, func) {
 allresults <- as.data.frame(sens_forest$X) %>% pmap(growth_wrapper, C_initial = C_initial, times = times, func = growth)
 
 allres <- allresults %>% 
-  map_dfr(`[`, c("max_val", "mean_val"))
+  map_dfr(`[`, c("max_val", "mean_val")) %>% 
+  rename(Maximum_Value = max_val, Mean_Value = mean_val)
 
 # create a box plot... SCALING IS OFF
 tmp <- allres %>% 
-  pivot_longer(cols = c(max_val, mean_val), names_to = "Metric", values_to = "Value")
+  pivot_longer(cols = c(Maximum_Value, Mean_Value), names_to = "Metric", values_to = "Value")
 
-ggplot(data = tmp, aes(x = Metric, y = Value, col=Metric)) +
-  geom_boxplot()
+ggplot(data = tmp, aes(x = Metric, y = Value)) +
+  geom_boxplot() +
+  facet_wrap(~Metric, scales = "free") +
+  theme_minimal()
 ```
 
 ```{r}
