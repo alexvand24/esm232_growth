@@ -22,10 +22,14 @@ r = 0.01
 g = 2
 cc_threshold = 50
 
-forestparms <- list(r = r, g = g, K = K, C, cc_threshold = cc_threshold)
-
 # create a time sequence
 times = seq(from = 1, to = 300)
+
+forestparms <- list(times = times,
+                    r = r, 
+                    g = g,
+                    K = K,
+                    cc_threshold = cc_threshold)
 
 # start a small forest
 C_initial = 10
@@ -33,7 +37,7 @@ C_initial = 10
 source(here("R", "growth.R"))
 
 # watch it grow
-forest = ode(y = C_initial, times = times, growth, parms=forestparms)
+forest = ode(y = C_initial, times, growth, forestparms)
 
 colnames(forest)=c("Time","Carbon")
 
@@ -45,69 +49,95 @@ ggplot(as.data.frame(forest),aes(x = Time, y = Carbon) ) +
 
 ## Sobol Sensitivity Analysis
 ```{r, error=TRUE}
+
 # we want to learn about sensitivity to growth rates (r,g), carrying capacity (K), and the canopy closure threshold (cc_threshold)
 
-# set the number of parameters
-np=100
-K = rnorm(mean = K, sd = K*0.1, n=np)
-r = rnorm(mean = r, sd = r*0.1, n=np)
-g = rnorm(mean = g, sd = g*0.1, n=np)
-cc_threshold = rnorm(mean = cc_threshold, sd = cc_threshold*0.1, n=np)
+#number of samples 
+np = 100 
 
-X1 = cbind.data.frame(r=r, K=K, g=g, cc_threshold=cc_threshold)
+#create first sample parameters from normal distributions 
+r = rnorm(mean = 0.01, sd = r*.10, n = np)
+g = rnorm(mean = 2, sd = g*.10, n = np)
+cc_threshold = rnorm(mean = 50, sd = cc_threshold*.10, n = np)
+K = rnorm(mean = 250, sd = K*.10, n = np)
 
-# repeat to get our second set of samples
-np=100
-K = rnorm(mean = K, sd = K*0.1, n=np)
-r = rnorm(mean = r, sd = r*0.1, n=np)
-g = rnorm(mean = g, sd = g*0.1, n=np)
-cc_threshold = rnorm(mean = cc_threshold, sd = cc_threshold*0.1, n=np)
+#create the first dataframe 
+X1 = cbind.data.frame(r = r, K= K, g = g, cc_threshold = cc_threshold)
 
-X2 = cbind.data.frame(r=r, K=K, g=g, cc_threshold=cc_threshold)
+#create second sample parameters from normal distributions (this is just how sobol works)
+r = rnorm(mean = 0.01, sd = r*.10, n = np)
+g = rnorm(mean = 2, sd = g*.10, n = np)
+cc_threshold = rnorm(mean = 50, sd = cc_threshold*.10, n = np)
+K = rnorm(mean = 250, sd = K*.10, n = np)
 
-# create sobol object and get parameters
-sens_forest = sobolSalt(model = NULL,X1, X2, nboot = 300)
-
-colnames(sens_forest$X) = c("r","K", "g", "cc_threshold")
-
-#parameters = list(r=sens_forest$X[1,1], K=sens_forest$X[1,2], g=sens_forest$X[1,3], cc_threshold=sens_forest$X[1,4])
-
-#forest_sensitivity = ode(y = C_initial, times = times, growth, parms=parameters)
+#create the second dataframe 
+X2 = cbind.data.frame(r = r, K = K, g = g, cc_threshold = cc_threshold)
 ```
 
-
+Create Sobol Object
 ```{r}
-# pull out max and mean values of c
-compute_metrics <- function(forst_sens) {
-  max_val <- max(forst_sens)
-  mean_val <- mean(forst_sens)
-  return(list(max_val=max_val, mean_val=mean_val))
-}
+#create sobol object and get parameters for running the model
+sens_forest = sobolSalt(model = NULL, X1, X2, nboot = 300)
 
-# use wrapper function to return the forest size values
-growth_wrapper <- function(r, K, g, cc_threshold, C_initial, times, func) {
-  parms <- list(r=r, K=K, g=g, cc_threshold=cc_threshold)
-  result <- ode(y=C_initial, times=times, func=func, parms=parms)
-  result <- as.data.frame(result)
-  colnames(result) = c("Time", "C")
-  #get metrics
-  metrics <- compute_metrics(result$C)
-  return(metrics)
-}
-
-
-
+colnames(sens_forest$X) = c("r",
+                            "K",
+                            "g",
+                            "cc_threshold")
+head(sens_forest$X)
 ```
 
-
+Wrapper Function
 ```{r}
 
-allresults <- as.data.frame(sens_forest$X) %>% pmap(growth_wrapper, C_initial = C_initial, times = times, func = growth)
+source(here("R", "compute_metrics.R"))
+
+growth_wrapper = function(r, K, g, cc_threshold, C_initial, times, func) {
+    parms = list(r = r,
+                 K = K,
+                 g = g,
+                 cc_threshold = cc_threshold)
+    result = ode(y = C_initial, 
+                 times = times, 
+                 func = func, 
+                 parms = parms) 
+    
+    colnames(result) = c("time","C")
+    
+     # get metrics
+    metrics = compute_metrics(as.data.frame(result))
+  
+    return(metrics)
+}
+```
+
+```{r}
+allresults <- as.data.frame(sens_forest$X)
+
+allresults <- allresults %>% 
+  pmap(growth_wrapper, 
+       C_initial = C_initial, 
+       times = times, 
+       func = growth)
 
 allres <- allresults %>% 
   map_dfr(`[`, c("max_val", "mean_val")) %>% 
   rename(Maximum_Value = max_val, Mean_Value = mean_val)
 
+# create a box plot
+tmp <- allres %>% 
+  pivot_longer(cols = c(Maximum_Value, Mean_Value), names_to = "Metric", values_to = "Value")
+
+max_df <- tmp %>% 
+  filter(Metric == "Maximum_Value")
+
+ggplot(data = max_df, aes(x = Metric, y = Value)) +
+  geom_boxplot() +
+  theme_minimal()
+```
+
+Create Sobol Indices Plots
+
+```{r}
 # calculate the Sobol indicies
 sens_forest_maxval <- sensitivity::tell(sens_forest, allres$Maximum_Value)
 
@@ -126,37 +156,22 @@ tmpT <- tmpT %>%
   rownames_to_column(var = "Parameter")
 
 # create indices barplots
-plotT <- ggplot(data = tmpT, aes(x = original, y = Parameter)) + geom_col()
-plotS <- ggplot(data = tmpS, aes(x = original, y = Parameter)) + geom_col()
+plotT <- ggplot(data = tmpT, aes(x = original,
+                                 y = Parameter)) + 
+  geom_col() +
+  theme_minimal() +
+  labs(title = "Max Forest Total Sensitivity")
 
-# create a box plot
-tmp <- allres %>% 
-  pivot_longer(cols = c(Maximum_Value, Mean_Value), names_to = "Metric", values_to = "Value")
+plotS <- ggplot(data = tmpS, aes(x = original,
+                                 y = Parameter)) + 
+  geom_col() +
+  theme_minimal() +
+  labs(title = "Max Forest First Order Sensitivity")
 
-max_df <- tmp %>% 
-  filter(Metric == "Maximum_Value")
+plotT
 
-ggplot(data = tmp, aes(x = Metric, y = Value)) +
-  geom_boxplot() +
-  facet_wrap(~Metric, scales = "free") +
-  theme_minimal()
+plotS
 ```
 
-```{r}
-# try to fix scaling... MEAN PLOT IS REALLY WEIRD
-max_df <- tmp %>% 
-  filter(Metric == "max_val")
 
-mean_df <- tmp %>% 
-  filter(Metric == "mean_val")
-
-max_plot <- ggplot(max_df, aes(x = Metric, y = Value)) +
-  geom_boxplot()
-
-mean_plot <- ggplot(mean_df, aes(x = Metric, Y = Value)) +
-  geom_boxplot()
-
-max_plot
-mean_plot
-```
 

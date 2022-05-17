@@ -7,7 +7,7 @@
 #' @param cc_threshold canopy closure threshold; zie of forest at which growth rates change from expoential to linear (from r to g)
 #' @return dC_dt rate of change of forest size
 
-growth <- function(Time, C, parms){
+growth <- function(times, C, parms){
   if(C < parms$cc_threshold){
     # early exponential growth rate
     # for forests where C is below a threshold canopy closure
