@@ -78,9 +78,9 @@ colnames(sens_forest$X) = c("r","K", "g", "cc_threshold")
 
 ```{r}
 # pull out max and mean values of c
-compute_metrics <- function(x) {
-  max_val <- max(x)
-  mean_val <- mean(x)
+compute_metrics <- function(forst_sens) {
+  max_val <- max(forst_sens)
+  mean_val <- mean(forst_sens)
   return(list(max_val=max_val, mean_val=mean_val))
 }
 
@@ -94,6 +94,13 @@ growth_wrapper <- function(r, K, g, cc_threshold, C_initial, times, func) {
   metrics <- compute_metrics(result$C)
   return(metrics)
 }
+
+
+
+```
+
+
+```{r}
 
 allresults <- as.data.frame(sens_forest$X) %>% pmap(growth_wrapper, C_initial = C_initial, times = times, func = growth)
 
