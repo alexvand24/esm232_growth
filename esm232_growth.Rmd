@@ -2,7 +2,9 @@
 title: "Forest Growth Model"
 author: "Kristin Gill, Quin Smith, Alex Vand"
 date: "5/11/2022"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -13,8 +15,10 @@ library(here)
 library(sensitivity)
 library(deSolve)
 library(purrr)
+library(patchwork)
 ```
 
+### Parameters and growth function
 ```{r}
 # set parameters
 K = 250
@@ -74,7 +78,7 @@ K = rnorm(mean = 250, sd = K*.10, n = np)
 X2 = cbind.data.frame(r = r, K = K, g = g, cc_threshold = cc_threshold)
 ```
 
-Create Sobol Object
+### Create Sobol Object
 ```{r}
 #create sobol object and get parameters for running the model
 sens_forest = sobolSalt(model = NULL, X1, X2, nboot = 300)
@@ -86,7 +90,7 @@ colnames(sens_forest$X) = c("r",
 head(sens_forest$X)
 ```
 
-Wrapper Function
+### Wrapper Function
 ```{r}
 
 source(here("R", "compute_metrics.R"))
@@ -122,7 +126,10 @@ allresults <- allresults %>%
 allres <- allresults %>% 
   map_dfr(`[`, c("max_val", "mean_val")) %>% 
   rename(Maximum_Value = max_val, Mean_Value = mean_val)
+```
 
+### Plots
+```{r}
 # create a box plot
 tmp <- allres %>% 
   pivot_longer(cols = c(Maximum_Value, Mean_Value), names_to = "Metric", values_to = "Value")
@@ -130,12 +137,11 @@ tmp <- allres %>%
 max_df <- tmp %>% 
   filter(Metric == "Maximum_Value")
 
-ggplot(data = max_df, aes(x = Metric, y = Value)) +
+boxplot <- ggplot(data = max_df, aes(x = Metric, y = Value)) +
   geom_boxplot() +
+  labs(x = "Metric", y = "Value \n (kg/Carbon)") +
   theme_minimal()
 ```
-
-Create Sobol Indices Plots
 
 ```{r}
 # calculate the Sobol indicies
@@ -154,24 +160,34 @@ rownames(tmpT) = c("r","K", "g", "cc_threshold")
 
 tmpT <- tmpT %>% 
   rownames_to_column(var = "Parameter")
+```
 
+```{r}
 # create indices barplots
 plotT <- ggplot(data = tmpT, aes(x = original,
                                  y = Parameter)) + 
   geom_col() +
   theme_minimal() +
-  labs(title = "Max Forest Total Sensitivity")
+  labs(title = "Total Sensitivity", x = "Sobol index")
 
 plotS <- ggplot(data = tmpS, aes(x = original,
                                  y = Parameter)) + 
   geom_col() +
   theme_minimal() +
-  labs(title = "Max Forest First Order Sensitivity")
-
-plotT
-
-plotS
+  labs(title = "First Order Sensitivity",
+       x = "Sobol index")
 ```
 
+```{r, fig.width = 8, fig.height = 6}
+# boxplot of maximum value distribution and bar plot of main effect and total effect sobol indices
+ptch_plt <- plotS + plotT + boxplot + plot_layout(ncol = 2)
+ptch_plt + plot_annotation(
+  tag_levels = "A",
+  tag_suffix = ")",
+  title = "Maximum forest size model",
+  subtitle = "Sobol indices of first order and total sensitivity (A & B) and boxplot of maximum value over 300 years (C)"
+)
+```
 
-
+## Discussion
+Based on this analysis, the exponential, pre-canopy closure growth rate, *r*, had the highest sensitivity to the maximum forest size, having the highest Sobol index value for both first order and total effect. The carrying capacity, *K*, had the second highest sensitivity. We could infer from the results of this model that climate impacts affecting forest pre-canopy closure growth rate or carrying capacity would impact maximum forest size. For example, a warmer, drier climate might induce higher evapotranspiration rates and introduce stress that inhibits the growth of younger trees, thereby decreasing pre-canopy closure growth rate. Climate disturbances that degrade or reduce the available area for forest lands (i.e., through fire, flood, or other means) could lower the carrying capacity. According to this model, maximum forest size would likely be impacted by either of these climate-related impacts.
